@@ -13,6 +13,7 @@ Vibrational Motors
 
 Servo Motors
   Kassy Chen, 1st year, BENG: BENG
+  
 Heat Pad
 
 Thermistor
