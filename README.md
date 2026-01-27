@@ -6,7 +6,7 @@ BMES Project Team 2025-26 Repository.
 Flex Sensor
   Ava Van Damme, 2nd year, BENG: BSYS
 Pressure Sensor
-
+  Henri Chau, 1st year, MCB
 Vibrational Motors
 
 Servo Motors
