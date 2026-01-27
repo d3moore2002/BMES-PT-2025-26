@@ -5,6 +5,8 @@ BMES Project Team 2025-26 Repository.
 
 Flex Sensor
   Ava Van Damme, 2nd year, BENG: BSYS   
+  Varchas
+Krishna
 Pressure Sensor
   Henri Chau, 1st year, MCB
 Vibrational Motors
@@ -17,4 +19,6 @@ Thermistor
 
 Internal Measurement Unit (IMU)
 
-Magnetic Encoder
+Rotary Potentiometer
+Varchas
+Krishna
