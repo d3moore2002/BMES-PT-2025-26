@@ -17,6 +17,7 @@ Heat Pad
 
 Thermistor
   Elizabeth Flores Martinez, 2nd year, NANO
+  
 Internal Measurement Unit (IMU)
 
 Rotary Potentiometer
