@@ -20,6 +20,7 @@ Thermistor
   Elizabeth Flores Martinez, 2nd year, NANO
   
 Internal Measurement Unit (IMU)
+  Kelly G, 3rd yr, BSYS
 
 Rotary Potentiometer
 Varchas
