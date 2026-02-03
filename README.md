@@ -1,6 +1,8 @@
 # BMES-2025-26-Haptic-Glove-Controlled-Prosthetic-Hand
 BMES Project Team 2025-26 Repository. 
 
+2/2/26 Update: Work on a Control System (work in teams)
+
 1/26/26 Homework: Put your name , year, and major under the sensor(s)/motor(s) you want to work with :)
 
 Flex Sensor
@@ -25,3 +27,4 @@ Internal Measurement Unit (IMU)
 Rotary Potentiometer
 Varchas
 Krishna
+
