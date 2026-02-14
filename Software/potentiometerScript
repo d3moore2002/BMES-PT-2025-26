@@ -1,0 +1,19 @@
+#include <Servo.h>
+
+Servo myServo;
+
+const int servoPin = 5;   // D5
+const int potPin = A1;    // Analog pin A1
+
+void setup() {
+  myServo.attach(servoPin);
+}
+
+void loop() {
+  int potValue = analogRead(potPin);     // 0–1023
+  int angle = map(potValue, 0, 1023, 0, 180);
+  angle = angle*2;
+  myServo.write(angle);
+  delay(100);
+}
+
