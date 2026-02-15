@@ -1,6 +1,7 @@
 #include <Servo.h>
 
 Servo myservo;
+Servo myservo2;
 
 const int FLEX_PIN = A0; // Pin connected to voltage divider output
 
@@ -11,8 +12,8 @@ const float R_DIV = 47500.0; // Measured resistance of 47k resistor
 
 // Upload the code, then try to adjust these values to more
 // accurately calculate bend degree.
-const float STRAIGHT_RESISTANCE = 58000.0; // resistance when straight
-const float BEND_RESISTANCE = 14000.0;     // resistance at 90 deg
+const float STRAIGHT_RESISTANCE = 57000.0; // resistance when straight
+const float BEND_RESISTANCE = 19000.0;     // resistance at 90 deg
 
 int pos = 0;
 
@@ -21,6 +22,8 @@ void setup() {
   pinMode(FLEX_PIN, INPUT);
   myservo.attach(11);
   myservo.write(0);
+  myservo2.attach(10);
+  myservo2.write(0);
 }
 
 void loop() {
@@ -40,5 +43,6 @@ void loop() {
   delay(500);
 
   myservo.write(angle*2);
+  myservo2.write(angle*2);
   delay(500);
 }
