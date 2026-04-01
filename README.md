@@ -22,8 +22,9 @@ Thermistor
   Elizabeth Flores Martinez, 2nd year, NANO
   Anvita Nandyala, 2nd year, BENG:BTECH
   
-Internal Measurement Unit (IMU)
+Inertial Measurement Unit (IMU)
   Kelly G, 3rd yr, BSYS
+  Yovani
 
 Rotary Potentiometer
 Varchas
