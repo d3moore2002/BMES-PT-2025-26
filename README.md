@@ -1,5 +1,37 @@
-# BMES-2025-26-Haptic-Glove-Controlled-Prosthetic-Hand
-BMES Project Team 2025-26 Repository. 
+# BMES at UC San Diego 2025-26 Project Team: Haptic Glove Controlled Prosthetic Hand
+---
+
+## Abstract
+
+This student-led project focuses on designing a wearable Haptic Glove that controls the movement of 3D printed and designed prosthetic hand. 
+
+---
+
+## Project Team Chairs 
+
+---
+
+## Mechanical Subleads
+
+### Mechanical Subteam 1
+
+### Mechnical Subteam 2
+
+### Mechnical Subteam 3
+
+---
+
+## Software/Electrical Subleads
+
+### Software/Electrical Subteam 1
+
+### Software/Electrical Subteam 2
+
+### Software/Electrical Subteam 3
+
+---
+
+## SOFTWARE UPDATES
 
 2/2/26 Update: Work on a Control System (work in teams)
 
@@ -29,4 +61,5 @@ Inertial Measurement Unit (IMU)
 Rotary Potentiometer
 Varchas
 Krishna
+
 
