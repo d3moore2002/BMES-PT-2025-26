@@ -1,1 +1,0 @@
-Put any STL files for the glove here.
