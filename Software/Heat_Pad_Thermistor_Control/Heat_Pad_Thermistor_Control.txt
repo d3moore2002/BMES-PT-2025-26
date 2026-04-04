@@ -1,1 +1,7 @@
-Put all code and schematics associated with the Heat_Pad_Thermistor_Control here.
+Heat_Pad Code.ino
+
+Uses Pulse Width Modulation (PWM) digital pins. These pins are able to adjust the average current set from a pin by quickly turning on and off a current. Digital PWM is on an 8 bit system, which means there are 256 values (0 - 255, starting from 0) that we can set the PWM pin to. Even though pin 3 is technically a digital pin, for any PWM pins we use analog write and to control the temperature, "analogWrite(Pin, (0-255)) is used. 
+
+
+Thermistor_Code.ino (https://ian-macmillan.com/Steinhart-Hart-Calculator/)
+
