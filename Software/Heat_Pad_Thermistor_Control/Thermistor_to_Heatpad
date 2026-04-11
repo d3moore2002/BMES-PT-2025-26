@@ -1,0 +1,108 @@
+// Pins
+#define ntc_pin        A0
+#define vd_power_pin   2
+#define heatpad_pin    3
+
+// Thermistor and conversion
+#define nominal_resistance   10000.0f
+#define nominal_temperature  25.0f
+#define samplingrate         5
+#define beta                 3950.0f
+#define Rref                 10000.0f
+
+// Control
+const float setpointC     = 27.0f;
+const float hysteresisC   = 1.0f;
+const int   heaterPWM     = 150;
+const float hardShutdownC = 40.0f;
+
+// ADC sanity window
+const uint16_t adcMinOk   = 5;
+const uint16_t adcMaxOk   = 1018;
+
+bool heaterOn = false;
+
+float readThermistorC() {
+  digitalWrite(vd_power_pin, HIGH);
+  delay(5);
+
+  uint32_t sum = 0;
+  for (uint8_t i = 0; i < samplingrate; i++) {
+    sum += analogRead(ntc_pin);
+    delay(10);
+  }
+
+  digitalWrite(vd_power_pin, LOW);
+
+  float adc = sum / (float)samplingrate;
+
+  if (adc < adcMinOk || adc > adcMaxOk) {
+    return NAN;
+  }
+
+  float rTherm = Rref * adc / (1023.0f - adc);
+
+  float invT = (1.0f / (nominal_temperature + 273.15f)) +
+               (1.0f / beta) * log(rTherm / nominal_resistance);
+
+  return (1.0f / invT) - 273.15f;
+}
+
+void setup() {
+  pinMode(vd_power_pin, OUTPUT);
+  pinMode(heatpad_pin, OUTPUT);
+  digitalWrite(vd_power_pin, LOW);
+  analogWrite(heatpad_pin, 0);
+
+  Serial.begin(9600);
+  while (!Serial);
+  delay(100);
+  Serial.println(F("Boot OK"));
+}
+
+void loop() {
+  float temperature = readThermistorC();
+  bool fault = (temperature != temperature);  // safe NaN check
+
+  if (fault || temperature >= hardShutdownC) {
+    heaterOn = false;
+} else if (temperature >= (setpointC - hysteresisC)) {  // ON when temp reaches interval
+    heaterOn = true;
+} else if (temperature < (setpointC - hysteresisC)) {   // OFF when below interval
+    heaterOn = false;
+}
+
+int pwmOutput = 0;
+if (heaterOn) {
+    // define your min and max PWM limits
+    const int minPWM = 50;
+    const int maxPWM = 150;  // matches your heaterPWM setting
+
+    // define the temperature range over which PWM scales
+    const float tempLow  = setpointC - hysteresisC;  // 26°C - starts here
+    const float tempHigh = hardShutdownC;             // 40°C - full power here
+
+    // map temperature linearly to PWM range
+    float ramp = (temperature - tempLow) / (tempHigh - tempLow);
+    ramp = constrain(ramp, 0.0f, 1.0f);
+    pwmOutput = (int)(minPWM + ramp * (maxPWM - minPWM));
+}
+analogWrite(heatpad_pin, pwmOutput);
+
+Serial.print(F("Temp: "));
+if (fault) {
+    Serial.print(F("FAULT"));
+} else {
+    Serial.print(temperature, 2);
+    Serial.print(F(" C"));
+}
+Serial.print(F(" | Heater: "));
+Serial.print(heaterOn ? F("ON") : F("OFF"));
+Serial.print(F(" | PWM: "));
+Serial.print(pwmOutput);
+Serial.print(F("/255"));
+Serial.print(F(" | Setpoint: "));
+Serial.print(setpointC);
+Serial.println(F(" C"));
+  delay(500);
+} 
