@@ -1,0 +1,265 @@
+// ════════════════════════════════════════════════════════════
+// LIBRARIES
+// ════════════════════════════════════════════════════════════
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h> // Replaces <Servo.h> for the PCA9685
+#include "Adafruit_DRV2605.h"
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+
+// ════════════════════════════════════════════════════════════
+// PIN DEFINITIONS
+// ════════════════════════════════════════════════════════════
+// Heatpad + Thermistor
+#define ntc_pin A3            // Thermistor 
+#define vd_power_pin 8        // 5V for the voltage divider
+#define heatpad_pin 9         // Heating pad MOSFET pin
+#define nominal_resistance 10000  
+#define nominal_temperature 25   
+#define samplingrate 5        
+#define beta 3950             
+#define Rref 10000            
+
+// Pressure Sensors
+#define PRESSURE_PIN_0 A0     // Sensor for motor 0
+#define PRESSURE_PIN_1 A4     // Sensor for motor 1
+#define PRESSURE_THRESHOLD 20 
+
+// Flex Sensors
+const int FLEX_PIN = A1;      
+const int FLEX_PIN2 = A5;     
+const int FLEX_PIN3 = A6;     
+
+// Potentiometer
+const int potPin = A2;
+
+// ════════════════════════════════════════════════════════════
+// I2C MULTIPLEXER & MOTORS (DRV2605L)
+// ════════════════════════════════════════════════════════════
+#define MUX_ADDR       0x70   // TCA9548A default I2C address
+#define MUX_CH_DRV0    0      // Channel 0 → first DRV2605L
+#define MUX_CH_DRV1    1      // Channel 1 → second DRV2605L
+
+Adafruit_DRV2605 drv0;
+Adafruit_DRV2605 drv1;
+
+// ════════════════════════════════════════════════════════════
+// PCA9685 SERVO DRIVER SETUP
+// ════════════════════════════════════════════════════════════
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
+
+#define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
+#define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
+
+// PCA9685 Ports for the 5 Servos
+#define SERVO_FLEX_1  0
+#define SERVO_FLEX_2  1
+#define SERVO_FLEX_3  2
+#define SERVO_IMU     3
+#define SERVO_POT     4
+
+// ════════════════════════════════════════════════════════════
+// IMU SETUP
+// ════════════════════════════════════════════════════════════
+Adafruit_MPU6050 mpu;
+
+// ════════════════════════════════════════════════════════════
+// CONSTANTS & VARIABLES
+// ════════════════════════════════════════════════════════════
+const unsigned long INTERVAL = 70; 
+unsigned long lastTime = 0;
+
+const float VCC = 4.98;       
+const float R_DIV = 47500.0;  
+
+const float STRAIGHT_RESISTANCE = 60000.0; 
+const float BEND_RESISTANCE = 14000.0;     
+const float STRAIGHT_RESISTANCE2 = 65000.0; 
+const float BEND_RESISTANCE2 = 15000.0;     
+const float STRAIGHT_RESISTANCE3 = 71000.0; 
+const float BEND_RESISTANCE3 = 19000.0;     
+
+int samples = 0;
+
+// ════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ════════════════════════════════════════════════════════════
+
+// Convert 0-180 degrees to PWM pulse for PCA9685
+void setServoAngle(uint8_t servonum, uint8_t angle) {
+  angle = constrain(angle, 0, 180); // Protect servos from overextending
+  uint16_t pulse = map(angle, 0, 180, SERVOMIN, SERVOMAX);
+  pwm.setPWM(servonum, 0, pulse);
+}
+
+void selectMuxChannel(int8_t ch) {
+  Wire.beginTransmission(MUX_ADDR);
+  Wire.write((ch >= 0) ? (1 << ch) : 0x00);
+  Wire.endTransmission();
+}
+
+bool initDriver(Adafruit_DRV2605 &drv, uint8_t muxCh, const char *label) {
+  selectMuxChannel(muxCh);
+  if (!drv.begin()) {
+    Serial.print("ERROR – could not find ");
+    Serial.println(label);
+    return false;
+  }
+  drv.selectLibrary(1);
+  drv.setMode(DRV2605_MODE_INTTRIG);
+  Serial.print(label);
+  Serial.println(" initialised OK");
+  return true;
+}
+
+void updateMotor(Adafruit_DRV2605 &drv, uint8_t muxCh, uint8_t sensorPin, const char *label) {
+  selectMuxChannel(muxCh); // aim I2C at this driver
+  int raw = analogRead(sensorPin);
+  int constrained = constrain(raw, 0, 820);
+  uint8_t effect = map(constrained, 0, 820, 0, 117);
+
+  if (raw > PRESSURE_THRESHOLD) {
+    drv.setWaveform(0, effect);
+    drv.setWaveform(1, effect);
+    drv.setWaveform(2, effect);
+    drv.setWaveform(3, effect);
+    drv.setWaveform(4, 0); // terminate waveform sequence
+    drv.go();
+  } else {
+    drv.stop();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// SETUP
+// ════════════════════════════════════════════════════════════
+void setup(){
+  Serial.begin(115200);
+  Wire.begin();
+
+  // Flex Sensor Pins
+  pinMode(FLEX_PIN, INPUT);
+  pinMode(FLEX_PIN2, INPUT);
+  pinMode(FLEX_PIN3, INPUT);
+
+  // Heat Pad Pins
+  pinMode(vd_power_pin, OUTPUT);
+  pinMode(heatpad_pin, OUTPUT);
+  analogWrite(heatpad_pin, 0); // Ensure off at start
+
+  // PCA9685 Servo Driver Setup
+  Serial.println("Initialising PCA9685 Servo Driver...");
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(50);  // Analog servos run at ~50 Hz
+  delay(10);
+
+  // Set initial servo positions to 0 degrees
+  setServoAngle(SERVO_FLEX_1, 0);
+  setServoAngle(SERVO_FLEX_2, 0);
+  setServoAngle(SERVO_FLEX_3, 0);
+  setServoAngle(SERVO_IMU, 0);
+  setServoAngle(SERVO_POT, 0);
+
+  // I2C Multiplexer & DRV2605L Setup
+  Serial.println("Initialising Dual DRV2605L + TCA9548A...");
+  initDriver(drv0, MUX_CH_DRV0, "DRV0 (A6)");
+  initDriver(drv1, MUX_CH_DRV1, "DRV1 (A7)");
+  selectMuxChannel(-1); // Disable mux channels when idle
+
+  // IMU Setup
+  Serial.println("Initialising MPU6050...");
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+  } else {
+    mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  }
+
+  Serial.println("Setup Complete.\n");
+  delay(100);
+}
+
+// ════════════════════════════════════════════════════════════
+// MAIN LOOP
+// ════════════════════════════════════════════════════════════
+void loop(){
+  // —----------------------------------------------------------------------
+  // FLEX SENSORS + SERVOS
+  // —----------------------------------------------------------------------
+  int flexADC = analogRead(FLEX_PIN);
+  float flexV = flexADC * VCC / 1023.0;
+  float flexR = R_DIV * (VCC / flexV - 1.0);
+  float angle = map(flexR, STRAIGHT_RESISTANCE, BEND_RESISTANCE, 0, 90.0);
+
+  int flexADC2 = analogRead(FLEX_PIN2);
+  float flexV2 = flexADC2 * VCC / 1023.0;
+  float flexR2 = R_DIV * (VCC / flexV2 - 1.0);
+  float angle2 = map(flexR2, STRAIGHT_RESISTANCE2, BEND_RESISTANCE2, 0, 90.0);
+
+  int flexADC3 = analogRead(FLEX_PIN3);
+  float flexV3 = flexADC3 * VCC / 1023.0;
+  float flexR3 = R_DIV * (VCC / flexV3 - 1.0);
+  float angle3 = map(flexR3, STRAIGHT_RESISTANCE3, BEND_RESISTANCE3, 0, 90.0);
+
+  // Send angles to PCA9685 (Capped at 180 inside helper function)
+  setServoAngle(SERVO_FLEX_1, angle * 2);
+  setServoAngle(SERVO_FLEX_2, angle2 * 2);
+  setServoAngle(SERVO_FLEX_3, angle3 * 2);
+
+  // —-----------------------------------------------------------------------
+  // HEAT PAD + THERMISTOR
+  // —-----------------------------------------------------------------------
+  uint8_t i;
+  float average;
+  samples = 0;
+  
+  digitalWrite(vd_power_pin, HIGH);
+  for (i = 0; i < samplingrate; i++) {
+    samples += analogRead(ntc_pin);
+    delay(10);
+  }
+  digitalWrite(vd_power_pin, LOW);
+  
+  average = samples / samplingrate;
+  average = 1023 / average - 1;
+  average = Rref / average;
+  
+  float temperature;
+  temperature = average / nominal_resistance;          
+  temperature = log(temperature);                      
+  temperature /= beta;                                 
+  temperature += 1.0 / (nominal_temperature + 273.15); 
+  temperature = 1.0 / temperature;                     
+  temperature -= 273.15; // convert absolute temp to C                         
+
+  // —-------------------------------------------------------------------
+  // IMU + SERVO
+  // —-------------------------------------------------------------------
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  int imu_val = a.acceleration.y;
+  imu_val = map(imu_val, -10, 10, 180, 0);
+  setServoAngle(SERVO_IMU, imu_val);
+
+  // —-------------------------------------------------------------------
+  // PRESSURE SENSORS + VIBRATIONAL MOTORS
+  // —-------------------------------------------------------------------
+  if (millis() - lastTime >= INTERVAL) {
+    lastTime = millis();
+    updateMotor(drv0, MUX_CH_DRV0, PRESSURE_PIN_0, "Motor0");
+    updateMotor(drv1, MUX_CH_DRV1, PRESSURE_PIN_1, "Motor1");
+    selectMuxChannel(-1); // idle: disable all channels to free I2C bus
+  }
+
+  // —----------------------------------------------------------------------
+  // POTENTIOMETER + SERVO
+  // —----------------------------------------------------------------------
+  int potValue = analogRead(potPin); // 0–1023
+  int potangle = map(potValue, 0, 1023, 0, 180);
+  setServoAngle(SERVO_POT, potangle); // Removed the *2 multiplier to prevent servo damage
+
+  delay(50); // Small loop delay for stability
+}
