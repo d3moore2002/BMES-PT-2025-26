@@ -1,0 +1,42 @@
+// Pins
+#define ntc_pin_1      A0
+#define ntc_pin_2      A1
+#define ntc_pin_3      A2
+#define vd_power_pin   2
+#define heatpad_pin    3
+
+// Thermistor and conversion
+#define nominal_resistance   10000.0f
+#define nominal_temperature  25.0f
+#define samplingrate         5
+#define beta                 3950.0f
+#define Rref                 10000.0f
+
+// Control
+const float setpointC     = 27.0f;
+const float hysteresisC   = 1.0f;
+const float hardShutdownC = 40.0f;
+
+// ADC sanity window
+const uint16_t adcMinOk = 5;
+const uint16_t adcMaxOk = 1018;
+
+bool heaterOn = false;
+
+// Read a single pin and return temperature in °C, or NAN on fault
+float readSingleNTC(uint8_t pin) {
+  uint32_t sum = 0;
+  for (uint8_t i = 0; i < samplingrate; i++) {
+    sum += analogRead(pin);
+    delay(10);
+  }
+
+  float adc = sum / (float)samplingrate;
+
+  if (adc < adcMinOk || adc > adcMaxOk) return NAN;
+
+  float rTherm = Rref * (1023.0f - adc) / adc;
+  float invT   = (1.0f / (nominal_temperature + 273.15f)) +
+                 (1.0f / beta) * log(rTherm / nominal_resistance);
+  return (1.0f / invT) - 273.15f;
+}
