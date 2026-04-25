@@ -240,9 +240,10 @@ void loop(){
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
-  int imu_val = a.acceleration.y;
+  float imu_val = a.acceleration.y;
   imu_val = map(imu_val, -10, 10, 180, 0);
   setServoAngle(SERVO_IMU, imu_val);
+  delay(50);
 
   // —-------------------------------------------------------------------
   // PRESSURE SENSORS + VIBRATIONAL MOTORS
