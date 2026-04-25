@@ -29,11 +29,11 @@ void loop() {
   sensors_event_t a, g, temp;
   srituhobby.getEvent(&a, &g, &temp);
 
-  int value = a.acceleration.y;
+  float value = a.acceleration.y;
 
   value = map(value,  -10, 10, 180, 0);
   servo.write(value);  
   Serial.println(value);
-  //delay(10);
+  delay(10);
 
 }
