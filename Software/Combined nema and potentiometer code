@@ -1,0 +1,87 @@
+#include <Servo.h>
+
+// --- Servo ---
+Servo myServo;
+const int servoPin    = 6;    // Changed from 5 to avoid conflict with stepPin
+const int potPin      = A1;
+
+// --- Stepper ---
+const int stepPin     = 5;
+const int dirPin      = 2;
+const int enPin       = 8;
+
+const int stepsPerMove = 800;
+const int stepDelayUs  = 500;
+const int pauseMs      = 1000;
+
+// --- Stepper state machine ---
+enum StepperState { MOVING_CW, PAUSING_CW, MOVING_CCW, PAUSING_CCW };
+StepperState stepperState = MOVING_CW;
+
+int currentStep       = 0;
+unsigned long pauseStart = 0;
+
+void setup() {
+  // Servo setup
+  myServo.attach(servoPin);
+
+  // Stepper setup
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin,  OUTPUT);
+  pinMode(enPin,   OUTPUT);
+  digitalWrite(enPin, LOW);
+  digitalWrite(dirPin, HIGH); // Start CW
+}
+
+void loop() {
+  // ---- Servo (runs every loop iteration) ----
+  int potValue = analogRead(potPin);
+  int angle    = map(potValue, 0, 1023, 0, 180);
+  myServo.write(angle);
+
+  // ---- Stepper state machine (non-blocking) ----
+  switch (stepperState) {
+
+    case MOVING_CW:
+      if (currentStep < stepsPerMove) {
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(stepDelayUs);
+        digitalWrite(stepPin, LOW);
+        delayMicroseconds(stepDelayUs);
+        currentStep++;
+      } else {
+        currentStep  = 0;
+        pauseStart   = millis();
+        stepperState = PAUSING_CW;
+      }
+      break;
+
+    case PAUSING_CW:
+      if (millis() - pauseStart >= pauseMs) {
+        digitalWrite(dirPin, LOW); // Switch to CCW
+        stepperState = MOVING_CCW;
+      }
+      break;
+
+    case MOVING_CCW:
+      if (currentStep < stepsPerMove) {
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(stepDelayUs);
+        digitalWrite(stepPin, LOW);
+        delayMicroseconds(stepDelayUs);
+        currentStep++;
+      } else {
+        currentStep  = 0;
+        pauseStart   = millis();
+        stepperState = PAUSING_CCW;
+      }
+      break;
+
+    case PAUSING_CCW:
+      if (millis() - pauseStart >= pauseMs) {
+        digitalWrite(dirPin, HIGH); // Switch to CW
+        stepperState = MOVING_CW;
+      }
+      break;
+  }
+}
